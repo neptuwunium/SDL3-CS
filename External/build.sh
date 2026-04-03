@@ -85,7 +85,7 @@ if [[ $BUILD_PLATFORM != 'Android' ]]; then
             libdecor-0-dev$TARGET_APT_ARCH
     fi
 else
-    if [[ -z $ANDROID_HOME || -z $NDK_VER || -z $PLATFORM_VER || -z $ANDROID_ABI ]]; then
+    if [[ -z $ANDROID_HOME || -z $NDK_VER || -z $ANDROID_ABI ]]; then
         echo "One or more required environment variables are not defined."
         exit 1
     fi
@@ -95,7 +95,7 @@ else
     export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VER"
     export FLAGS="$FLAGS -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
                          -DANDROID_HOME=$ANDROID_HOME \
-                         -DANDROID_PLATFORM=$PLATFORM_VER \
+                         -DANDROID_PLATFORM=21 \
                          -DANDROID_ABI=$ANDROID_ABI \
                          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                          -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
@@ -156,6 +156,11 @@ run_cmake() {
         sed -i 's/#include <gameinput.h>/#_include <gameinput.h>/g' CMakeLists.txt
     fi
 
+    # Change the minumum Android API level for SDL_mixer to API 24 as opusfile and libflac fail to build on lower versions.
+    if [[ $BUILD_PLATFORM == 'Android' && $LIB_NAME == 'SDL_mixer' ]]; then
+        export FLAGS="${FLAGS/-DANDROID_PLATFORM=21/-DANDROID_PLATFORM=24}"
+    fi
+
     rm -rf build
     cmake -B build $FLAGS -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSDL_SHARED=ON -DSDL_STATIC=OFF "${@:3}"
     cmake --build build/ --config $BUILD_TYPE --verbose
@@ -189,10 +194,7 @@ run_cmake SDL_image ${OUTPUT_LIB/variant/_image} -DCMAKE_PREFIX_PATH=$CMAKE_PREF
 # -DSDLMIXER_MP3_MPG123=OFF is used because upstream build is broken. Fallback to dr_mp3.
 # See: https://github.com/libsdl-org/SDL_mixer/pull/744#issuecomment-3180682130
 # Fixing using the proposed solution causes more issues.
-#
-# -DSDLMIXER_FLAC_LIBFLAC=OFF is used because the build fails on android-x86. Fallback to dr_flac.
-# See: https://github.com/libsdl-org/SDL_mixer/issues/745
-run_cmake SDL_mixer ${OUTPUT_LIB/variant/_mixer} -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH -DSDLMIXER_MP3_MPG123=OFF -DSDLMIXER_FLAC_LIBFLAC=OFF -DSDLMIXER_DEPS_SHARED=OFF -DSDLMIXER_VENDORED=ON
+run_cmake SDL_mixer ${OUTPUT_LIB/variant/_mixer} -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH -DSDLMIXER_MP3_MPG123=OFF -DSDLMIXER_DEPS_SHARED=OFF -DSDLMIXER_VENDORED=ON -DSDLMIXER_TESTS=OFF -DSDLMIXER_EXAMPLES=OFF
 
 # Build SDL_shadercross
 run_cmake SDL_shadercross ${OUTPUT_LIB/variant/_shadercross} -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH -DSDLSHADERCROSS_DXC=OFF -DSDLSHADERCROSS_INSTALL=ON -DSDLSHADERCROSS_SHARED=ON -DSDLSHADERCROSS_VENDORED=ON
